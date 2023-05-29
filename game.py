@@ -507,14 +507,14 @@ class Game:
 
         pygame.quit()
         exit(1)
+        
+# Testing game states
 test_fen1 = "8/Np1P1PP1/1P2Q2r/1r5p/1Pp1n3/5k2/5B2/3K4 w"
 test_fen2 = "b2n2N1/qp1QnRp1/2p5/8/4k2N/1p2P3/6P1/1K6 b"
 test_fen3 = "8/3p1P2/2npP2R/P3k1p1/P5p1/5rp1/K4Nb1/8 b"
-
 test_mate = "r2qk2r/pb4pp/1n2Pb2/2B2Q2/p1p5/2P5/2B2PPP/RN2R1K1 w"
-mate_1 = "k7/ppp5/8/3q4/1P3RK1/7r/P4Q2/8 b"
+mate_in_1 = "k7/ppp5/8/3q4/1P3RK1/7r/P4Q2/8 b"
 
 game = Game(screen)
-game.load_board(mate_1)
+game.load_board()
 game.display()
-
