@@ -324,10 +324,13 @@ class Game:
                 
                 # Temporarily moving the piece
                     curr_row , curr_col = self.selected_piece.position
-                    self.selected_piece.move((row,col) , self.board)
+                    temp = self.board[row][col]
+                    self.board[row][col] = self.selected_piece
+                    self.board[curr_row][curr_col] = 0
                     # Still in check after move
                     if self.is_check(self.board, self.selected_piece.color):
-                        self.selected_piece.move((curr_row,curr_col),self.board)
+                        self.board[row][col] = temp
+                        self.board[curr_row][curr_col] = self.selected_piece
                         self.selected_piece = None
                         return
                     
@@ -497,7 +500,6 @@ class Game:
                 exit(1)
 
             if self.has_check:
-                print("Check anu")
                 message = pygame.font.Font(None, 34).render("Check !!", True, check_color)
                 message_rect = message.get_rect(center=(width//2, height//2))
                 screen.blit(message, message_rect)
@@ -507,8 +509,7 @@ class Game:
 
         pygame.quit()
         exit(1)
-        
-# Testing game states
+
 test_fen1 = "8/Np1P1PP1/1P2Q2r/1r5p/1Pp1n3/5k2/5B2/3K4 w"
 test_fen2 = "b2n2N1/qp1QnRp1/2p5/8/4k2N/1p2P3/6P1/1K6 b"
 test_fen3 = "8/3p1P2/2npP2R/P3k1p1/P5p1/5rp1/K4Nb1/8 b"
