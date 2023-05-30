@@ -218,12 +218,10 @@ class Pawn(ChessPiece):
         if self.color == "white":
             direction = -1
             start_row = 6
-            promotion_row = 0
         
         else:
             direction = 1
             start_row = 1
-            promotion_row = 7
         
         final_row = curr_row + direction 
         rows = cols = len(board)
@@ -247,6 +245,25 @@ class Pawn(ChessPiece):
                     valid_moves.append((final_row,final_col))
     
         return valid_moves
+
+    def perform_promotion(self,position,board):
+        target_row , target_col = position
+        curr_row , curr_col = self.position
+        board[target_row][target_col] = Queen(self.color,position)
+        board[curr_row][curr_col] = 0
+        
+
+    def move(self,position,board):
+        if position[0] == 0 or position[0] == 7:
+            self.perform_promotion(position,board)
+            return
+        
+        new_row , new_col = position
+        old_row , old_col = self.position
+        # Moving character from current piece to new pos
+        board[old_row][old_col] = 0
+        board[new_row][new_col] = self
+        self.position = new_row , new_col
 
 piece_fen = {"r":Rook,"n":Knight,"b":Bishop,"q":Queen,"k":King,"p":Pawn 
              }
@@ -304,7 +321,6 @@ class Game:
         col = pos[0] // cell_size
 
         cell = self.board[row][col]
-
         # Selecting an unselected square
         if not self.selected_piece:
             if cell:
@@ -320,26 +336,17 @@ class Game:
         # Square is already selected
         if self.selected_piece:
             if (row, col) in self.selected_piece.valid_moves(self.board):
-                if self.is_check(self.board,self.selected_piece.color):
-                
-                # Temporarily moving the piece
-                    curr_row , curr_col = self.selected_piece.position
-                    temp = self.board[row][col]
-                    self.board[row][col] = self.selected_piece
-                    self.board[curr_row][curr_col] = 0
-                    # Still in check after move
-                    if self.is_check(self.board, self.selected_piece.color):
-                        self.board[row][col] = temp
-                        self.board[curr_row][curr_col] = self.selected_piece
-                        self.selected_piece = None
-                        return
-                    
-                    # Not in check after move
-                    self.current_player = "white" if self.current_player != "white" else "black"
+                pos = self.selected_piece.position
+                temp = self.board[row][col]
+                self.selected_piece.move((row,col),self.board)
+                # If check after move ... illegal move
+                if self.is_check(self.board,self.current_player):
+                    self.board[pos[0]][pos[1]] = self.selected_piece
+                    self.board[row][col] = temp
+                    self.selected_piece.position = (pos)
                     self.selected_piece = None
                     return
-
-                self.selected_piece.move((row,col),self.board)
+                
                 self.current_player = "white" if self.current_player != "white" else "black"
                 # Checkmate condition
                 if self.check_mate(self.board,self.current_player):
@@ -441,7 +448,6 @@ class Game:
                         for x , y in valid_moves:
                              pygame.draw.rect(screen,valid_spot_color,(y * cell_size, x * cell_size, cell_size, cell_size))
 
-
             # Rank and File Indexing
             label_font = pygame.font.Font(None ,22)
 
@@ -458,9 +464,6 @@ class Game:
                 file_text = label_font.render(file_labels[i],True, color)
                 file_rect = rank_text.get_rect(x = i * cell_size + cell_size - 17 , y = height - 15)
                 screen.blit(file_text,file_rect)
-
-            # Coloring selected tile and valid spots
-            
 
             # Loading all the pieces into the game 
             for row in range(8):
@@ -517,5 +520,5 @@ test_mate = "r2qk2r/pb4pp/1n2Pb2/2B2Q2/p1p5/2P5/2B2PPP/RN2R1K1 w"
 mate_in_1 = "k7/ppp5/8/3q4/1P3RK1/7r/P4Q2/8 b"
 
 game = Game(screen)
-game.load_board()
+game.load_board(test_fen2)
 game.display()
