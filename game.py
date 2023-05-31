@@ -224,9 +224,11 @@ class King(ChessPiece):
                 curr_row , curr_col = self.position
                 left_castle , right_castle = self.check_castling(board)
 
-                if left_castle:
+                if left_castle and isinstance(board[curr_row][curr_col - 4],Rook)\
+                      and not board[curr_row][curr_col -4].has_moved:
                     valid_moves.append((curr_row , curr_col -2))
-                if right_castle:
+                if right_castle and isinstance(board[curr_row][curr_col +3],Rook)\
+                      and not board[curr_row][curr_col +3].has_moved: 
                     valid_moves.append((curr_row, curr_col + 2))
 
         return valid_moves
@@ -346,7 +348,7 @@ class Pawn(ChessPiece):
                 en_passant = board[curr_row][final_col]
                 if dest_piece and dest_piece.color != self.color:
                     valid_moves.append((final_row,final_col))
-                if en_passant and en_passant.color != self.color and isinstance(en_passant, Pawn)  and en_passant.en_passant_target:
+                if en_passant and en_passant.color != self.color and isinstance(en_passant, Pawn)  and en_passant.en_passant_target and not game.en_passant_check and game.en_passant_check == self.color:
                     valid_moves.append((final_row,final_col))
 
         return valid_moves
@@ -375,8 +377,9 @@ class Pawn(ChessPiece):
         board[old_row][old_col] = 0
         board[new_row][new_col] = self
         self.position = new_row , new_col
-        if abs(old_row - new_row) == 2:
+        if abs(old_row - new_row) == 2 and game.en_passant_check != self.color:
             self.en_passant_target = True
+            game.en_passant_check = self.color
         else:
             self.en_passant_target = False
 
@@ -407,10 +410,9 @@ class Game:
         self.board = [[0]* 8 for _ in range(8)]
         self.current_player = "white" 
         self.selected_piece = None
-        self.selected_piece_pos = None  
         self.has_check = None
         self.has_mate = None
-        self.win = False
+        self.en_passant_check = None
 
     def load_board(self,fen = "DEFAULT"):
         if fen == "DEFAULT":
@@ -433,7 +435,7 @@ class Game:
                         self.board[row][col] = piece_fen[char]('black',(row,col))
                     
                     if isinstance(self.board[row][col], King):
-                        if (row,col) not in ((0,5),(7,5)):
+                        if (row,col) not in ((0,4),(7,4)):
                             self.board[row][col].has_moved = True 
                     col += 1
 
@@ -449,7 +451,6 @@ class Game:
                     return
                     
                 self.selected_piece = cell
-                self.selected_piece_pos = (row, col)
                 return
             else:
                 self.selected_piece = None
@@ -468,6 +469,10 @@ class Game:
                     self.selected_piece = None
                     return
                 
+                # Changing the en passant target
+                if self.en_passant_check == self.selected_piece.color:
+                    self.en_passant_check = None
+
                 self.current_player = "white" if self.current_player != "white" else "black"
                 # Checkmate condition
                 if self.check_mate(self.board,self.current_player):
@@ -562,7 +567,7 @@ class Game:
 
                     # Selected piece
                     if self.selected_piece:
-                        select_row,select_col = self.selected_piece_pos
+                        select_row,select_col = self.selected_piece.position
                         pygame.draw.rect(screen,select_cell_color,(select_col * cell_size, select_row * cell_size, cell_size, cell_size))
 
                         valid_moves = self.selected_piece.valid_moves(self.board)
