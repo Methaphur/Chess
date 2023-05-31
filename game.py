@@ -21,13 +21,17 @@ class ChessPiece:
         self.color = color 
         self.position = position
     
-    def move(self, position , board):
+    def move(self, position , board):        
         new_row , new_col = position
         old_row , old_col = self.position
         # Moving character from current piece to new pos
         board[old_row][old_col] = 0
         board[new_row][new_col] = self
         self.position = new_row , new_col
+
+        # Castling checks
+        if isinstance(self, (King, Rook)) and not self.has_moved:
+            self.has_moved = True
 
 class Bishop(ChessPiece):
     def valid_moves(self, board):
@@ -95,6 +99,10 @@ class Knight(ChessPiece):
         return valid_moves
 
 class Rook(ChessPiece):
+    def __init__(self,color,position):
+        super().__init__(color,position)
+        self.has_moved = False
+
     def valid_moves(self,board):
         valid_moves = []
     
@@ -176,6 +184,10 @@ class Queen(ChessPiece):
         return valid_moves 
 
 class King(ChessPiece):
+    def __init__(self,color,position):
+        super().__init__(color,position)
+        self.has_moved = False
+
     def valid_moves(self,board):
         valid_moves = []
     
@@ -206,10 +218,100 @@ class King(ChessPiece):
                     # Undo the move
                     board[new_row][new_col] = temp
                     board[curr_row][curr_col] = self
+        
+        # Castling possibility
+            if not self.has_moved:
+                curr_row , curr_col = self.position
+                left_castle , right_castle = self.check_castling(board)
+
+                if left_castle:
+                    valid_moves.append((curr_row , curr_col -2))
+                if right_castle:
+                    valid_moves.append((curr_row, curr_col + 2))
 
         return valid_moves
 
+    def check_castling(self,board):
+        curr_row , curr_col = self.position
+        left_castle = right_castle = False
+
+        if not self.has_moved:
+            if not board[curr_row][curr_col-1] and not board[curr_row][curr_col-2] and not board[curr_row][curr_col -3]:
+                left_castle = True
+            if not board[curr_row][curr_col + 1] and not board[curr_row][curr_col +2]:
+                right_castle = True
+
+        if left_castle:
+            offsets = [ (0 ,-1),(0, -2)]
+            for row_offset , col_offset in offsets:
+                new_row = curr_row + row_offset
+                new_col = curr_col + col_offset
+
+                board[new_row][new_col] = self
+                board[curr_row][curr_col] = 0
+                if game.is_check(board,self.color):
+                    board[new_row][new_col] = 0
+                    board[curr_row][curr_col] = self
+                    left_castle = False
+                
+                board[new_row][new_col] = 0
+                board[curr_row][curr_col] = self
+
+        if right_castle:
+            offsets = [ (0 , 1),(0, 2)]
+            for row_offset , col_offset in offsets:
+                new_row = curr_row + row_offset
+                new_col = curr_col + col_offset
+
+                board[new_row][new_col] = self
+                board[curr_row][curr_col] = 0
+                if game.is_check(board,self.color):
+                    board[new_row][new_col] = 0
+                    board[curr_row][curr_col] = self
+                    right_castle = False
+                
+                board[new_row][new_col] = 0
+                board[curr_row][curr_col] = self
+
+        # Returns a tuple of bool whether left or right castle
+        return (left_castle, right_castle)
+
+    def perform_castle(self,position,board):
+        curr_row , curr_col = self.position
+        final_row , final_col = position
+
+        # Left Castle
+        if curr_col - final_col > 0:
+            board[curr_row][curr_col] = 0
+            board[final_row][final_col] = self
+            board[curr_row][curr_col-4].move((final_row,final_col+1),board)
+            self.position = (final_row,final_col)
+            self.has_moved = True
+        # Right Castle 
+        if curr_col - final_col < 0:
+            board[curr_row][curr_col] = 0
+            board[final_row][final_col] = self
+            board[curr_row][curr_col +3].move((final_row,final_col-1),board)
+            self.position = (final_row,final_col)
+            self.has_moved = True
+
+    def move(self,position,board):
+        if abs(position[1] - self.position[1]) == 2:
+            self.perform_castle(position,board)
+            return
+
+        new_row , new_col = position
+        old_row , old_col = self.position
+        board[old_row][old_col] = 0
+        board[new_row][new_col] = self
+        self.position = new_row , new_col    
+        self.has_moved = True
+
 class Pawn(ChessPiece):
+    def __init__(self,color,position):
+        super().__init__(color,position)
+        self.en_passant_target = False
+
     def valid_moves(self,board):
         valid_moves = []
             
@@ -241,9 +343,12 @@ class Pawn(ChessPiece):
             final_row , final_col = curr_row + row_offset , curr_col + col_offset
             if 0 <= final_row < rows and 0 <= final_col < cols:
                 dest_piece = board[final_row][final_col]
+                en_passant = board[curr_row][final_col]
                 if dest_piece and dest_piece.color != self.color:
                     valid_moves.append((final_row,final_col))
-    
+                if en_passant and en_passant.color != self.color and isinstance(en_passant, Pawn)  and en_passant.en_passant_target:
+                    valid_moves.append((final_row,final_col))
+
         return valid_moves
 
     def perform_promotion(self,position,board):
@@ -252,7 +357,6 @@ class Pawn(ChessPiece):
         board[target_row][target_col] = Queen(self.color,position)
         board[curr_row][curr_col] = 0
         
-
     def move(self,position,board):
         if position[0] == 0 or position[0] == 7:
             self.perform_promotion(position,board)
@@ -260,10 +364,23 @@ class Pawn(ChessPiece):
         
         new_row , new_col = position
         old_row , old_col = self.position
+        
+        # En passant move
+        # sketchy code but pawn moves to empty square diagonally 
+        if abs(old_col - new_col) == 1:
+            if isinstance(board[old_row][old_col - (old_col - new_col)],Pawn):
+                board[old_row][old_col - (old_col - new_col)] = 0
+
         # Moving character from current piece to new pos
         board[old_row][old_col] = 0
         board[new_row][new_col] = self
         self.position = new_row , new_col
+        if abs(old_row - new_row) == 2:
+            self.en_passant_target = True
+        else:
+            self.en_passant_target = False
+
+
 
 piece_fen = {"r":Rook,"n":Knight,"b":Bishop,"q":Queen,"k":King,"p":Pawn 
              }
@@ -314,6 +431,10 @@ class Game:
                         self.board[row][col] = piece_fen[char.lower()]('white',(row,col))
                     else:
                         self.board[row][col] = piece_fen[char]('black',(row,col))
+                    
+                    if isinstance(self.board[row][col], King):
+                        if (row,col) not in ((0,5),(7,5)):
+                            self.board[row][col].has_moved = True 
                     col += 1
 
     def handle_click(self,pos):
@@ -519,6 +640,7 @@ test_fen3 = "8/3p1P2/2npP2R/P3k1p1/P5p1/5rp1/K4Nb1/8 b"
 test_mate = "r2qk2r/pb4pp/1n2Pb2/2B2Q2/p1p5/2P5/2B2PPP/RN2R1K1 w"
 mate_in_1 = "k7/ppp5/8/3q4/1P3RK1/7r/P4Q2/8 b"
 
+final_test = "2nb2k1/3P4/p2p1Ppp/3P2p1/3QR3/1P6/3K2P1/8 w - - 0 1"
 game = Game(screen)
-game.load_board(test_fen2)
+game.load_board()
 game.display()
