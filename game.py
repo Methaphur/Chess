@@ -507,7 +507,26 @@ class Game:
                     if king_pos in valid_moves:
                         return True
         
-        return False
+        for row in range(8):
+            for col in range(8):
+                piece = board[row][col]
+                if piece and piece.color != color and isinstance(piece, King):
+                    curr_row , curr_col = piece.position
+                    king_offsets = [
+                    (-1, -1), (-1, 0), (-1, 1),
+                    (0, -1),           (0, 1),
+                    (1, -1),  (1, 0),  (1, 1)
+                    ]
+                    for offset_row , offset_col in king_offsets:
+                        new_row = curr_row + offset_row
+                        new_col = curr_col + offset_col
+                        if 0 <= new_row < 8 and 0 <= new_col < 8:
+                            valid_moves.append((new_row,new_col))
+                            # Minor optimization
+                            if king_pos in valid_moves:
+                                return True
+
+        return False    
 
     def check_mate(self,board,color):
         # Check if player's king is in Check
@@ -647,5 +666,5 @@ mate_in_1 = "k7/ppp5/8/3q4/1P3RK1/7r/P4Q2/8 b"
 
 final_test = "2nb2k1/3P4/p2p1Ppp/3P2p1/3QR3/1P6/3K2P1/8 w - - 0 1"
 game = Game(screen)
-game.load_board()
+game.load_board(test_fen1)
 game.display()
